@@ -1,0 +1,45 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/Memory.hdl
+
+/**
+ * The complete address space of the Hack computer's memory,
+ * including RAM and memory-mapped I/O. 
+ * The chip facilitates read and write operations, as follows:
+ *     Read:  out(t) = Memory[address(t)](t)
+ *     Write: if load(t-1) then Memory[address(t-1)](t) = in(t-1)
+ * In words: the chip always outputs the value stored at the memory 
+ * location specified by address. If load==1, the in value is loaded 
+ * into the memory location specified by address. This value becomes 
+ * available through the out output from the next time step onward.
+ * Address space rules:
+ * Only the upper 16K+8K+1 words of the Memory chip are used. 
+ * Access to address>0x6000 is invalid. Access to any address in 
+ * the range 0x4000-0x5FFF results in accessing the screen memory 
+ * map. Access to address 0x6000 results in accessing the keyboard 
+ * memory map. The behavior in these addresses is described in the 
+ * Screen and Keyboard chip specifications given in the book.
+ */
+
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+  ALU(x[0..14]=address,x[15]=false,y[0..13]=false,y[14]=true,y[15]=false,zx=false,nx=true,zy=false,ny=false,f=true,no=true,out=o1,zr=zr1,ng=ng1,ng=ng);
+   ALU(x[0..14]=address,x[15]=false,y[0..12]=false,y[13]=true,y[14]=true,y[15]=false,zx=false,nx=true,zy=false,ny=false,f=true,no=true,out=e0,zr=zr2,ng=ng2);
+
+   And(a=load,b=ng,out=l1);
+   Not(in=ng1,out=notng1);
+   And(a=load,b=notng1,out=l2);
+  
+   RAM16K(in=in,load=l1,address=address[0..13],out=o2);
+   Screen(in=in,load=l2,address=address[0..12],out=o3);
+   Keyboard(out=o4);
+   Mux16(a=o3,b=o2,sel=ng,out=o5);
+   Mux16(a=o5,b=o4,sel=zr2,out=out);
+
+
+
+}

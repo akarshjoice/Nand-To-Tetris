@@ -1,0 +1,146 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    Mux16(a=instruction,b=aluoutput,sel=instruction[15],out=m16op1);
+    Not(in=instruction[15],out=ain);
+    Or(a=instruction[5],b=ain,out=op);
+    ARegister(in=m16op1,load=op,out=aregop,out[0..14]=addressM);
+    Mux16(a=aregop,b=inM,sel=instruction[12],out=m16op2);
+    ALU(x=dregop,y=m16op2,zx=instruction[11],nx=instruction[10],zy=instruction[9],ny=instruction[8],f=instruction[7],no=instruction[6],out=aluoutput,zr=zr,ng=ng,out[15]=p,out[0]=h1,out[1]=h2,out[2]=h3,out[3]=h4,out[4]=h5,out[5]=h6,out[6]=h7,
+    out[7]=h8,out[8]=h9,out[9]=h10,out[10]=h11,out[11]=h12,out[12]=h13,out[13]=h14,out[14]=h15,out[15]=h16);
+
+    Or(a=h1,b=h2,out=c1);
+    Or(a=h3,b=h4,out=c2);
+    Or(a=h5,b=h6,out=c3);
+    Or(a=h7,b=h8,out=c4);
+    Or(a=h9,b=h10,out=c5);
+    Or(a=h11,b=h12,out=c6);
+    Or(a=h13,b=h14,out=c7);
+    Or(a=h15,b=h16,out=c8);
+
+    Or(a=c1,b=c2,out=q1);
+    Or(a=c3,b=c4,out=q2);
+    Or(a=c5,b=c6,out=q3);
+    Or(a=c7,b=c8,out=q4);
+    Or(a=q1,b=q2,out=n1);
+    Or(a=q3,b=q4,out=n2);
+    Or(a=n1,b=n2,out=noteqtozero,out=ne0,out=ne00);
+    
+
+    
+    And(a=instruction[15],b=instruction[4],out=op2);
+    DRegister(in=aluoutput,load=op2,out=dregop);
+    And16(a=aluoutput,b=true,out=outM);
+    
+    And(a=instruction[15],b=instruction[3],out=op3);
+    Mux(a=false,b=instruction[3],sel=op3,out=writeM);
+
+  //  And(a=aregop,b=true,out[0..14]=addressM);
+   
+    
+    Not(in=p,out=gte);
+    And(a=noteqtozero,b=gte,out=gt);
+
+   
+    DMux8Way(in=true,sel[2]=ng,sel[1]=zr,sel[0]=gt,a=a,b=b,c=c,d=d1,e=e,f=f1,g=g1,h=h,c=cee);
+    
+
+   Not(in=e,out=d);
+   Not(in=b,out=g);
+    
+
+
+
+    Nand(a=cee,b=cee,out=notcee);
+    Or(a=notcee,b=f1,out=f);
+
+
+
+
+
+    Mux(a=a,b=b,sel=instruction[0],out=l1);
+    Mux(a=c,b=d,sel=instruction[0],out=l2);
+    Mux(a=e,b=f,sel=instruction[0],out=l3);
+    Mux(a=g,b=h,sel=instruction[0],out=l4);
+
+    Mux(a=l1,b=l2,sel=instruction[1],out=l5);
+    Mux(a=l3,b=l4,sel=instruction[1],out=l6);
+
+    Mux(a=l5,b=l6,sel=instruction[2],out=lan,out=l7);
+
+   
+
+    And(a=y2 , b=nota2,out=not000andnot111);
+    Not(in=lan,out=notlan);
+    And(a=not000andnot111,b=notlan,out=increment);//if false,then increment
+
+
+
+    Or(a=instruction[2],b=instruction[1],out=y1);
+    Or(a=y1,b=instruction[0],out=y2);
+    Not(in=y2,out=its000);
+    And(a=y2,b=l7,out=l8);//000 case
+    
+    And(a=instruction[2],b=instruction[1],out=a1);
+    And(a=a1,b=instruction[0],out=a2);
+    Not(in=a2,out=nota2);
+    Or(a=a2,b=l8,out=l9);// 111 case
+
+    Not(in=instruction[15],out=ainstr);
+    Or(a=ainstr,b=its000,out=goinc); 
+    Or(a=goinc,b=increment,out=goinc1);
+
+    And(a=instruction[15],b=l9,out=l10);
+    And(a=y2,b=l10,out=l11);
+
+   
+    
+
+
+
+
+
+    PC(in=aregop,load=l11,inc=goinc1,reset=reset,out=o1,out[0..14]=pc);
+
+    
+
+   
+    }
